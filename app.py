@@ -2,7 +2,7 @@ import sys
 
 from PySide6.QtWidgets import QApplication, QMainWindow, QLabel, QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QPushButton, QLineEdit, QTextEdit, QGroupBox, QDoubleSpinBox, QSpinBox, QGraphicsView, QGraphicsScene, QGraphicsItem
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QBrush, QPen, QFont, QFontDatabase
+from PySide6.QtGui import QBrush, QPen, QFont, QFontDatabase, QColor
 
 from elements import *
 
@@ -12,7 +12,8 @@ class MainWindow(QMainWindow):
 
         self.cellWidth = 0
         self.cellHeight = 0
-        self.selected = Element()
+        self.selected = None
+        self.elements = list()
 
         self.setWindowTitle("Label Maker by Filip Pernea")
         # self.resize(1920, 1080)
@@ -231,7 +232,6 @@ class MainWindow(QMainWindow):
         rightMenu.addWidget(data)
 
         self.nameLabel = QLabel("no item selected!")
-        self.idLabel = QLabel("")
 
         dataLayout = QVBoxLayout()
 
@@ -239,11 +239,6 @@ class MainWindow(QMainWindow):
         row1.addWidget(QLabel("Name: "))
         row1.addWidget(self.nameLabel)
         dataLayout.addLayout(row1)
-        
-        row2 = QHBoxLayout()
-        row2.addWidget(QLabel("ID: "))
-        row2.addWidget(self.idLabel)
-        dataLayout.addLayout(row2)
 
         data.setLayout(dataLayout)
 
@@ -260,11 +255,19 @@ class MainWindow(QMainWindow):
         self.positionY.setMaximum(999)
         self.scaleX.setMaximum(999)
         self.scaleY.setMaximum(999)
+        self.scaleX.setMinimum(1)
+        self.scaleY.setMinimum(1)
+        self.positionX.setSingleStep(0.1)
+        self.positionY.setSingleStep(0.1)
+        self.scaleX.setSingleStep(0.1)
+        self.scaleY.setSingleStep(0.1)
+        self.scaleX.setValue(1)
+        self.scaleY.setValue(1)
 
-        self.positionX.valueChanged.connect(self.reloadCell)
-        self.positionY.valueChanged.connect(self.reloadCell)
-        self.scaleX.valueChanged.connect(self.reloadCell)
-        self.scaleY.valueChanged.connect(self.reloadCell)
+        self.positionX.valueChanged.connect(self.reloadElement)
+        self.positionY.valueChanged.connect(self.reloadElement)
+        self.scaleX.valueChanged.connect(self.reloadElement)
+        self.scaleY.valueChanged.connect(self.reloadElement)
 
         itemDimensionsLayout = QVBoxLayout()
 
@@ -301,16 +304,44 @@ class MainWindow(QMainWindow):
 
         settingsLayout = QVBoxLayout()
 
-        row1 = QHBoxLayout()
-        row1.addWidget(QLabel("Data: "))
-        row1.addWidget(QLabel("data"))
-        settingsLayout.addLayout(row1)
-
         settings.setLayout(settingsLayout)
 
         rightMenu.addStretch()
 
         self.reloadCell()
+
+        ###############
+        # BOTTOM MENU #
+        ###############
+
+        bottomMenu = QHBoxLayout()
+        layout.addLayout(bottomMenu, 12, 0, 4, 6)
+
+        # ASSETS
+        assets = QGroupBox()
+        assets.setTitle("Assets")
+        bottomMenu.addWidget(assets)
+
+        assetsLayout = QHBoxLayout()
+
+        # Text asset
+        textAsset = QGroupBox()
+        textAsset.setTitle("Text")
+
+        textAssetLayout = QVBoxLayout()
+
+        textAssetLayout.addWidget(QLabel("Text"))
+        textAssetButton = QPushButton("Add asset")
+        textAssetButton.clicked.connect(self.addText)
+        textAssetLayout.addWidget(textAssetButton)
+
+        textAsset.setLayout(textAssetLayout)
+
+        assetsLayout.addWidget(textAsset)
+
+        assetsLayout.addStretch()
+
+        assets.setLayout(assetsLayout)
 
     def reloadCell(self):
         try:
@@ -326,7 +357,7 @@ class MainWindow(QMainWindow):
         self.cellHeightLabel.setText(f"{self.cellHeight}")
 
         try:
-            SCALE = 10 * self.zoomControlls.value() # precision: turns 0.5 into 500 for precision and no drawing rects with 0.5 pixel width. 
+            SCALE = 10 * self.zoomControlls.value() # precision: turns 0.5 into 5 for precision and no drawing rects with 0.5 pixel width. 
 
             self.xText.setX(self.cellWidth * SCALE)
             self.xText.setPlainText(f"x: {self.cellWidth} mm")
@@ -336,16 +367,42 @@ class MainWindow(QMainWindow):
 
             self.paper.setRect(30, 30, self.cellWidth * SCALE, self.cellHeight * SCALE)
             self.scene.setSceneRect(0, 0, self.cellWidth * SCALE + 60, self.cellHeight * SCALE + 60)
+
+            self.positionX.setMaximum(self.cellWidth)
+            self.positionY.setMaximum(self.cellHeight)
         except:
             pass
+
+        self.reloadElement()
 
         # debug: print(f"{self.width.value() * SCALE} {self.height.value() * SCALE}")
     
     def reloadElement(self):
-        pass
+        SCALE = 10 * self.zoomControlls.value() # precision: turns 0.5 into 5 for precision and no drawing rects with 0.5 pixel width. 
+
+        if self.selected == None:
+            return
+        
+        element = self.elements[self.selected]
+        item = element.canvasElement
+
+        if (element.elementType == "Text"):
+            font = item.font()
+            font.setPointSize(element.properties.get("font-size", 32) * SCALE)
+            item.setFont(font)
+            item.setPlainText(str(element.properties.get("text", "template")))
+            item.setDefaultTextColor(QColor("black"))
+
+        item.setPos(element.x * SCALE + 30, element.y * SCALE + 30)
 
     def reloadElements(self):
         self.reloadCell()
+
+    def addText(self):
+        self.elements.append(Element("Text", self.scene.addText("template", QFont("Cascadia Code")), {"text": "template", "font-size": 32}))
+        self.selected = len(self.elements) - 1
+
+        self.reloadElement()
 
 app = QApplication(sys.argv)
 
