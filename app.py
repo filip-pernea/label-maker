@@ -410,8 +410,6 @@ class MainWindow(QMainWindow):
         self.scaleY.setText(f"{(rect.height() / SCALE):.1f}")
 
         if (element.elementType == "Text"):
-            
-
             font = item.font()
             font.setPointSize(element.properties.get("font-size"))
             item.setFont(font)
