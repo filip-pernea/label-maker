@@ -81,6 +81,11 @@ class MainWindow(QMainWindow):
         self.left.setMaximum(999)
         self.right.setMaximum(999)
 
+        self.top.setValue(10)
+        self.bottom.setValue(10)
+        self.left.setValue(10)
+        self.right.setValue(10)
+
         self.top.valueChanged.connect(self.reloadCell)
         self.bottom.valueChanged.connect(self.reloadCell)
         self.left.valueChanged.connect(self.reloadCell)
@@ -120,8 +125,8 @@ class MainWindow(QMainWindow):
         self.horizontal.setMaximum(999)
         self.vertical.setMaximum(999)
 
-        self.horizontal.setValue(1)
-        self.vertical.setValue(1)
+        self.horizontal.setValue(5)
+        self.vertical.setValue(13)
 
         self.horizontal.valueChanged.connect(self.reloadCell)
         self.vertical.valueChanged.connect(self.reloadCell)
@@ -211,7 +216,7 @@ class MainWindow(QMainWindow):
         self.zoomControlls.setMinimum(0.1)
         self.zoomControlls.setSingleStep(0.1)
 
-        self.zoomControlls.setValue(0.2)
+        self.zoomControlls.setValue(2.0)
 
         self.zoomControlls.valueChanged.connect(self.reloadElements)
 
@@ -231,13 +236,13 @@ class MainWindow(QMainWindow):
         data.setTitle("Item data")
         rightMenu.addWidget(data)
 
-        self.nameLabel = QLabel("no item selected!")
+        self.typeLabel = QLabel("no item selected!")
 
         dataLayout = QVBoxLayout()
 
         row1 = QHBoxLayout()
-        row1.addWidget(QLabel("Name: "))
-        row1.addWidget(self.nameLabel)
+        row1.addWidget(QLabel("Selected element: "))
+        row1.addWidget(self.typeLabel)
         dataLayout.addLayout(row1)
 
         data.setLayout(dataLayout)
@@ -249,53 +254,43 @@ class MainWindow(QMainWindow):
         
         self.positionX = QDoubleSpinBox()
         self.positionY = QDoubleSpinBox()
-        self.scaleX = QDoubleSpinBox()
-        self.scaleY = QDoubleSpinBox()
+        self.scaleX = QLabel("")
+        self.scaleY = QLabel("")
         self.positionX.setMaximum(999)
         self.positionY.setMaximum(999)
-        self.scaleX.setMaximum(999)
-        self.scaleY.setMaximum(999)
-        self.scaleX.setMinimum(1)
-        self.scaleY.setMinimum(1)
-        self.positionX.setSingleStep(0.1)
-        self.positionY.setSingleStep(0.1)
-        self.scaleX.setSingleStep(0.1)
-        self.scaleY.setSingleStep(0.1)
-        self.scaleX.setValue(1)
-        self.scaleY.setValue(1)
+        self.positionX.setSingleStep(1)
+        self.positionY.setSingleStep(1)
 
         self.positionX.valueChanged.connect(self.reloadElement)
         self.positionY.valueChanged.connect(self.reloadElement)
-        self.scaleX.valueChanged.connect(self.reloadElement)
-        self.scaleY.valueChanged.connect(self.reloadElement)
 
-        itemDimensionsLayout = QVBoxLayout()
+        self.itemDimensionsLayout = QVBoxLayout()
 
         row1 = QHBoxLayout()
         row1.addWidget(QLabel("Position X: "))
         row1.addWidget(self.positionX)
         row1.addWidget(QLabel("mm"))
-        itemDimensionsLayout.addLayout(row1)
+        self.itemDimensionsLayout.addLayout(row1)
 
         row2 = QHBoxLayout()
         row2.addWidget(QLabel("Position Y: "))
         row2.addWidget(self.positionY)
         row2.addWidget(QLabel("mm"))
-        itemDimensionsLayout.addLayout(row2)
+        self.itemDimensionsLayout.addLayout(row2)
 
         row3 = QHBoxLayout()
-        row3.addWidget(QLabel("Size X: "))
+        row3.addWidget(QLabel("Width: "))
         row3.addWidget(self.scaleX)
         row3.addWidget(QLabel("mm"))
-        itemDimensionsLayout.addLayout(row3)
+        self.itemDimensionsLayout.addLayout(row3)
 
         row4 = QHBoxLayout()
-        row4.addWidget(QLabel("Size Y: "))
+        row4.addWidget(QLabel("Height: "))
         row4.addWidget(self.scaleY)
         row4.addWidget(QLabel("mm"))
-        itemDimensionsLayout.addLayout(row4)
+        self.itemDimensionsLayout.addLayout(row4)
 
-        itemDimensions.setLayout(itemDimensionsLayout)
+        itemDimensions.setLayout(self.itemDimensionsLayout)
 
         # SETTINGS
         settings = QGroupBox()
@@ -353,17 +348,17 @@ class MainWindow(QMainWindow):
         except:
             self.cellWidth = "n/a"
 
-        self.cellWidthLabel.setText(f"{self.cellWidth}")
-        self.cellHeightLabel.setText(f"{self.cellHeight}")
+        self.cellWidthLabel.setText(f"{self.cellWidth:.1f}")
+        self.cellHeightLabel.setText(f"{self.cellHeight:.1f}")
 
         try:
             SCALE = 10 * self.zoomControlls.value() # precision: turns 0.5 into 5 for precision and no drawing rects with 0.5 pixel width. 
 
             self.xText.setX(self.cellWidth * SCALE)
-            self.xText.setPlainText(f"x: {self.cellWidth} mm")
+            self.xText.setPlainText(f"x: {self.cellWidth:.1f} mm")
 
             self.yText.setY(self.cellHeight * SCALE)
-            self.yText.setPlainText(f"y: {self.cellHeight} mm")
+            self.yText.setPlainText(f"y: {self.cellHeight:.1f} mm")
 
             self.paper.setRect(30, 30, self.cellWidth * SCALE, self.cellHeight * SCALE)
             self.scene.setSceneRect(0, 0, self.cellWidth * SCALE + 60, self.cellHeight * SCALE + 60)
@@ -376,21 +371,51 @@ class MainWindow(QMainWindow):
         self.reloadElement()
 
         # debug: print(f"{self.width.value() * SCALE} {self.height.value() * SCALE}")
-    
-    def reloadElement(self):
+
+    def loadElement(self):
         SCALE = 10 * self.zoomControlls.value() # precision: turns 0.5 into 5 for precision and no drawing rects with 0.5 pixel width. 
 
-        if self.selected == None:
+        if self.selected is None:
             return
         
         element = self.elements[self.selected]
         item = element.canvasElement
+        rect = item.boundingRect()
+
+        self.typeLabel.setText(f"{element.elementType}")
+
+        self.positionX.setValue(element.x)
+        self.positionY.setValue(element.y)
+        self.scaleX.setText(f"{(rect.width() / SCALE):.1f}")
+        self.scaleY.setText(f"{(rect.height() / SCALE):.1f}")
+
+        self.reloadElement()
+        self.reloadElement()
+    
+    def reloadElement(self):
+        SCALE = 10 * self.zoomControlls.value() # precision: turns 0.5 into 5 for precision and no drawing rects with 0.5 pixel width. 
+
+        if self.selected is None:
+            return
+        
+        element = self.elements[self.selected]
+        item = element.canvasElement
+        rect = item.boundingRect()
+
+        self.typeLabel.setText(f"{element.elementType}")
+
+        element.x = self.positionX.value()
+        element.y = self.positionY.value()
+        self.scaleX.setText(f"{(rect.width() / SCALE):.1f}")
+        self.scaleY.setText(f"{(rect.height() / SCALE):.1f}")
 
         if (element.elementType == "Text"):
+            
+
             font = item.font()
-            font.setPointSize(element.properties.get("font-size", 32) * SCALE)
+            font.setPointSize(element.properties.get("font-size"))
             item.setFont(font)
-            item.setPlainText(str(element.properties.get("text", "template")))
+            item.setPlainText(str(element.properties.get("text")))
             item.setDefaultTextColor(QColor("black"))
 
         item.setPos(element.x * SCALE + 30, element.y * SCALE + 30)
@@ -399,10 +424,10 @@ class MainWindow(QMainWindow):
         self.reloadCell()
 
     def addText(self):
-        self.elements.append(Element("Text", self.scene.addText("template", QFont("Cascadia Code")), {"text": "template", "font-size": 32}))
+        self.elements.append(Text(self.scene.addText("template", QFont("Cascadia Code"))))
         self.selected = len(self.elements) - 1
 
-        self.reloadElement()
+        self.loadElement()
 
 app = QApplication(sys.argv)
 
