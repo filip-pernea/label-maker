@@ -1,10 +1,11 @@
 import sys
+from math import floor
 
-from PySide6.QtWidgets import QApplication, QMainWindow, QLabel, QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QPushButton, QLineEdit, QTextEdit, QGroupBox, QDoubleSpinBox, QSpinBox, QGraphicsView, QGraphicsScene, QGraphicsItem
+from PySide6.QtWidgets import QApplication, QMainWindow, QLabel, QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QPushButton, QLineEdit, QTextEdit, QGroupBox, QDoubleSpinBox, QSpinBox, QGraphicsView, QGraphicsScene, QGraphicsItem, QLayout, QCheckBox
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QBrush, QPen, QFont, QFontDatabase, QColor
 
-from elements import *
+from elements import Element, Text
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -14,6 +15,8 @@ class MainWindow(QMainWindow):
         self.cellHeight = 0
         self.selected = None
         self.elements = list()
+
+        self.gridLines = list()
 
         self.setWindowTitle("Label Maker by Filip Pernea")
         # self.resize(1920, 1080)
@@ -124,6 +127,8 @@ class MainWindow(QMainWindow):
         self.vertical = QSpinBox()
         self.horizontal.setMaximum(999)
         self.vertical.setMaximum(999)
+        self.horizontal.setMinimum(1)
+        self.vertical.setMinimum(1)
 
         self.horizontal.setValue(5)
         self.vertical.setValue(13)
@@ -212,6 +217,17 @@ class MainWindow(QMainWindow):
         layout.addWidget(controlls, 0, 1, 1, 4)
 
         self.zoomControlls = QDoubleSpinBox()
+        self.gridLine = QCheckBox()
+        self.distanceX = QDoubleSpinBox()
+        self.distanceY = QDoubleSpinBox()
+        self.distanceX.setMinimum(0.1)
+        self.distanceY.setMinimum(0.1)
+        self.distanceX.setMaximum(100)
+        self.distanceY.setMaximum(50)
+        self.distanceX.setSingleStep(1)
+        self.distanceY.setSingleStep(1)
+        self.distanceX.setValue(1)
+        self.distanceY.setValue(1)
         self.zoomControlls.setMaximum(10)
         self.zoomControlls.setMinimum(0.1)
         self.zoomControlls.setSingleStep(0.1)
@@ -219,9 +235,18 @@ class MainWindow(QMainWindow):
         self.zoomControlls.setValue(2.0)
 
         self.zoomControlls.valueChanged.connect(self.reloadElements)
+        self.gridLine.stateChanged.connect(self.reloadCell)
+        self.distanceX.valueChanged.connect(self.reloadCell)
+        self.distanceY.valueChanged.connect(self.reloadCell)
 
         controllsLayout.addWidget(QLabel("Zoom level: "))
         controllsLayout.addWidget(self.zoomControlls)
+        controllsLayout.addWidget(QLabel("Grid lines: "))
+        controllsLayout.addWidget(self.gridLine)
+        controllsLayout.addWidget(QLabel("Distance X: "))
+        controllsLayout.addWidget(self.distanceX)
+        controllsLayout.addWidget(QLabel("Distance Y: "))
+        controllsLayout.addWidget(self.distanceY)
 
         controlls.setLayout(controllsLayout)
 
@@ -264,42 +289,30 @@ class MainWindow(QMainWindow):
         self.positionX.valueChanged.connect(self.reloadElement)
         self.positionY.valueChanged.connect(self.reloadElement)
 
-        self.itemDimensionsLayout = QVBoxLayout()
+        itemDimensionsLayout = QVBoxLayout()
 
         row1 = QHBoxLayout()
         row1.addWidget(QLabel("Position X: "))
         row1.addWidget(self.positionX)
         row1.addWidget(QLabel("mm"))
-        self.itemDimensionsLayout.addLayout(row1)
+        itemDimensionsLayout.addLayout(row1)
 
         row2 = QHBoxLayout()
         row2.addWidget(QLabel("Position Y: "))
         row2.addWidget(self.positionY)
         row2.addWidget(QLabel("mm"))
-        self.itemDimensionsLayout.addLayout(row2)
+        itemDimensionsLayout.addLayout(row2)
 
-        row3 = QHBoxLayout()
-        row3.addWidget(QLabel("Width: "))
-        row3.addWidget(self.scaleX)
-        row3.addWidget(QLabel("mm"))
-        self.itemDimensionsLayout.addLayout(row3)
-
-        row4 = QHBoxLayout()
-        row4.addWidget(QLabel("Height: "))
-        row4.addWidget(self.scaleY)
-        row4.addWidget(QLabel("mm"))
-        self.itemDimensionsLayout.addLayout(row4)
-
-        itemDimensions.setLayout(self.itemDimensionsLayout)
+        itemDimensions.setLayout(itemDimensionsLayout)
 
         # SETTINGS
         settings = QGroupBox()
         settings.setTitle("Item settings")
         rightMenu.addWidget(settings)
 
-        settingsLayout = QVBoxLayout()
+        self.settingsLayout = QVBoxLayout()
 
-        settings.setLayout(settingsLayout)
+        settings.setLayout(self.settingsLayout)
 
         rightMenu.addStretch()
 
@@ -339,34 +352,45 @@ class MainWindow(QMainWindow):
         assets.setLayout(assetsLayout)
 
     def reloadCell(self):
-        try:
-            self.cellHeight = (self.height.value() - self.top.value() - self.bottom.value()) / self.vertical.value()
-        except:
-            self.cellHeight = "n/a"
-        try:
-            self.cellWidth = (self.width.value() - self.left.value() - self.right.value()) / self.horizontal.value()
-        except:
-            self.cellWidth = "n/a"
-
+        self.cellHeight = (self.height.value() - self.top.value() - self.bottom.value()) / self.vertical.value()
+        self.cellWidth = (self.width.value() - self.left.value() - self.right.value()) / self.horizontal.value()
+        
         self.cellWidthLabel.setText(f"{self.cellWidth:.1f}")
         self.cellHeightLabel.setText(f"{self.cellHeight:.1f}")
 
-        try:
-            SCALE = 10 * self.zoomControlls.value() # precision: turns 0.5 into 5 for precision and no drawing rects with 0.5 pixel width. 
+        SCALE = 10 * self.zoomControlls.value() # precision: turns 0.5 into 5 for precision and no drawing rects with 0.5 pixel width. 
 
-            self.xText.setX(self.cellWidth * SCALE)
-            self.xText.setPlainText(f"x: {self.cellWidth:.1f} mm")
+        self.xText.setX(self.cellWidth * SCALE)
+        self.xText.setPlainText(f"x: {self.cellWidth:.1f} mm")
 
-            self.yText.setY(self.cellHeight * SCALE)
-            self.yText.setPlainText(f"y: {self.cellHeight:.1f} mm")
+        self.yText.setY(self.cellHeight * SCALE)
+        self.yText.setPlainText(f"y: {self.cellHeight:.1f} mm")
 
-            self.paper.setRect(30, 30, self.cellWidth * SCALE, self.cellHeight * SCALE)
-            self.scene.setSceneRect(0, 0, self.cellWidth * SCALE + 60, self.cellHeight * SCALE + 60)
+        self.paper.setRect(30, 30, self.cellWidth * SCALE, self.cellHeight * SCALE)
+        self.scene.setSceneRect(0, 0, self.cellWidth * SCALE + 60, self.cellHeight * SCALE + 60)
 
-            self.positionX.setMaximum(self.cellWidth)
-            self.positionY.setMaximum(self.cellHeight)
-        except:
-            pass
+        self.positionX.setMaximum(self.cellWidth)
+        self.positionY.setMaximum(self.cellHeight)
+
+        self.distanceX.setMaximum(self.cellWidth)
+        self.distanceY.setMaximum(self.cellHeight)
+
+        for item in self.gridLines:
+            self.scene.removeItem(item)
+
+        self.gridLines.clear()
+
+        if self.gridLine.isChecked():           
+            for i in range(floor(self.cellWidth / self.distanceX.value()) + 1):
+                pen = QPen(QColor.fromRgb(128, 128, 128, 75))
+                pen.setWidth(3)
+                pen.setStyle(Qt.DashLine)
+                self.gridLines.append(self.scene.addLine(30 + (i * self.distanceX.value()) * SCALE, 0, 30 + (i * self.distanceX.value()) * SCALE, 60 + self.cellHeight * SCALE, pen))
+            for i in range(floor(self.cellHeight / self.distanceY.value()) + 1):
+                pen = QPen(QColor.fromRgb(128, 128, 128, 75))
+                pen.setWidth(3)
+                pen.setStyle(Qt.DashLine)
+                self.gridLines.append(self.scene.addLine(0, 30 + (i * self.distanceY.value()) * SCALE, 60 + self.cellWidth * SCALE, 30 + (i * self.distanceY.value()) * SCALE, pen))
 
         self.reloadElement()
 
@@ -386,10 +410,30 @@ class MainWindow(QMainWindow):
 
         self.positionX.setValue(element.x)
         self.positionY.setValue(element.y)
-        self.scaleX.setText(f"{(rect.width() / SCALE):.1f}")
-        self.scaleY.setText(f"{(rect.height() / SCALE):.1f}")
+        # self.scaleX.setText(f"{(rect.width() / SCALE):.1f}")
+        # self.scaleY.setText(f"{(rect.height() / SCALE):.1f}")
 
-        self.reloadElement()
+        self.clearLayout(self.settingsLayout)
+
+        if element.elementType == "Text": 
+            self.textField = QLineEdit()
+            self.scaleField = QSpinBox()
+            self.textField.setText('template')
+            self.scaleField.setValue(32)
+
+            self.textField.textChanged.connect(self.reloadElement)
+            self.scaleField.valueChanged.connect(self.reloadElement)
+
+            row = QHBoxLayout()
+            row.addWidget(QLabel("Text: "))
+            row.addWidget(self.textField)
+            self.settingsLayout.addLayout(row)
+
+            row = QHBoxLayout()
+            row.addWidget(QLabel("Font size: "))
+            row.addWidget(self.scaleField)
+            self.settingsLayout.addLayout(row)
+
         self.reloadElement()
     
     def reloadElement(self):
@@ -406,17 +450,19 @@ class MainWindow(QMainWindow):
 
         element.x = self.positionX.value()
         element.y = self.positionY.value()
-        self.scaleX.setText(f"{(rect.width() / SCALE):.1f}")
-        self.scaleY.setText(f"{(rect.height() / SCALE):.1f}")
+        # self.scaleX.setText(f"{(rect.width() / SCALE):.1f}")
+        # self.scaleY.setText(f"{(rect.height() / SCALE):.1f}")
 
-        if (element.elementType == "Text"):
+        if element.elementType == "Text":
+            item.document().setDocumentMargin(0)
+            item.setTextWidth(-1)
             font = item.font()
-            font.setPointSize(element.properties.get("font-size"))
+            font.setPointSize(self.scaleField.value())
             item.setFont(font)
-            item.setPlainText(str(element.properties.get("text")))
+            item.setPlainText(self.textField.text())
             item.setDefaultTextColor(QColor("black"))
 
-        item.setPos(element.x * SCALE + 30, element.y * SCALE + 30)
+            item.setPos(element.x * SCALE + 30, element.y * SCALE + 30)
 
     def reloadElements(self):
         self.reloadCell()
@@ -426,6 +472,21 @@ class MainWindow(QMainWindow):
         self.selected = len(self.elements) - 1
 
         self.loadElement()
+
+    # Source - https://stackoverflow.com/a/9383780
+    # Posted by ekhumoro, modified by community. See post 'Timeline' for change history
+    # Retrieved 2026-02-28, License - CC BY-SA 4.0
+
+    def clearLayout(self, layout):
+        if isinstance(layout, QLayout):
+            while layout.count():
+                item = layout.takeAt(0)
+                widget = item.widget()
+                if widget is not None:
+                    widget.deleteLater()
+                else:
+                    self.clearLayout(item.layout())
+
 
 app = QApplication(sys.argv)
 
