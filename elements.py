@@ -1,5 +1,6 @@
 class Element:
-    def __init__(self, elementType: str, canvasElement: any, properties: dict = {}, x = 0, y = 0):
+    def __init__(self, elementId: int, elementType: str, canvasElement: any, properties: dict = {}, x = 0, y = 0):
+        self.id = elementId
         self.elementType = elementType
         self.x = x
         self.y = y
@@ -11,8 +12,8 @@ class Element:
             self.properties[key] = value
 
 class Text(Element):
-    def __init__(self, canvasElement: any, properties: dict = {}, x = 0, y = 0):
-        super().__init__(elementType="Text", canvasElement=canvasElement, properties=properties, x=x, y=y)
+    def __init__(self, elementId: int, canvasElement: any, properties: dict = {}, x = 0, y = 0):
+        super().__init__(elementId=elementId, elementType="Text", canvasElement=canvasElement, properties=properties, x=x, y=y)
         if "text" not in self.properties:
             self.properties["text"] = "template"
         if "font-size" not in self.properties:

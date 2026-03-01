@@ -1,7 +1,7 @@
 import sys
 from math import floor
 
-from PySide6.QtWidgets import QApplication, QMainWindow, QLabel, QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QPushButton, QLineEdit, QTextEdit, QGroupBox, QDoubleSpinBox, QSpinBox, QGraphicsView, QGraphicsScene, QGraphicsItem, QLayout, QCheckBox
+from PySide6.QtWidgets import QApplication, QMainWindow, QLabel, QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QPushButton, QLineEdit, QTextEdit, QGroupBox, QDoubleSpinBox, QSpinBox, QGraphicsView, QGraphicsScene, QGraphicsItem, QLayout, QCheckBox, QListWidget, QListWidgetItem
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QBrush, QPen, QFont, QFontDatabase, QColor
 
@@ -171,6 +171,21 @@ class MainWindow(QMainWindow):
         cellsLayout.addLayout(row2)
 
         cells.setLayout(cellsLayout)
+
+        # EXPLORER
+        explorer = QGroupBox()
+        explorer.setTitle("Explorer")
+        leftMenu.addWidget(explorer)
+
+        self.explorerList = QListWidget()
+        self.explorerList.setMinimumHeight(200)
+        self.explorerList.itemClicked.connect(self.elementSelected)
+
+        explorerLayout = QVBoxLayout()
+
+        explorerLayout.addWidget(self.explorerList)
+
+        explorer.setLayout(explorerLayout)
 
         leftMenu.addStretch()
 
@@ -408,18 +423,29 @@ class MainWindow(QMainWindow):
 
         self.typeLabel.setText(f"{element.elementType}")
 
+        self.positionX.blockSignals(True)
+        self.positionY.blockSignals(True)
+
         self.positionX.setValue(element.x)
         self.positionY.setValue(element.y)
-        # self.scaleX.setText(f"{(rect.width() / SCALE):.1f}")
-        # self.scaleY.setText(f"{(rect.height() / SCALE):.1f}")
+        
+        self.positionX.blockSignals(False)
+        self.positionY.blockSignals(False)
 
         self.clearLayout(self.settingsLayout)
 
         if element.elementType == "Text": 
             self.textField = QLineEdit()
             self.scaleField = QSpinBox()
-            self.textField.setText('template')
-            self.scaleField.setValue(32)
+
+            self.textField.blockSignals(True)
+            self.scaleField.blockSignals(True)
+
+            self.textField.setText(element.properties["text"])
+            self.scaleField.setValue(element.properties["font-size"])
+
+            self.textField.blockSignals(False)
+            self.scaleField.blockSignals(False)
 
             self.textField.textChanged.connect(self.reloadElement)
             self.scaleField.valueChanged.connect(self.reloadElement)
@@ -450,16 +476,17 @@ class MainWindow(QMainWindow):
 
         element.x = self.positionX.value()
         element.y = self.positionY.value()
-        # self.scaleX.setText(f"{(rect.width() / SCALE):.1f}")
-        # self.scaleY.setText(f"{(rect.height() / SCALE):.1f}")
+
 
         if element.elementType == "Text":
             item.document().setDocumentMargin(0)
             item.setTextWidth(-1)
             font = item.font()
-            font.setPointSize(self.scaleField.value())
+            font.setPointSize(self.scaleField.value() * self.zoomControlls.value())
+            element.properties["font-size"] = self.scaleField.value()
             item.setFont(font)
             item.setPlainText(self.textField.text())
+            element.properties["text"] = self.textField.text()
             item.setDefaultTextColor(QColor("black"))
 
             item.setPos(element.x * SCALE + 30, element.y * SCALE + 30)
@@ -467,9 +494,27 @@ class MainWindow(QMainWindow):
     def reloadElements(self):
         self.reloadCell()
 
+    def elementSelected(self, element):
+        for index, obj in enumerate(self.elements):
+            if obj.id == int(element.text().split(":")[0]):
+                self.selected = index
+                break
+
+        self.loadElement()
+
     def addText(self):
-        self.elements.append(Text(self.scene.addText("template", QFont("Cascadia Code"))))
+        elementId = 0
+
+        for element in self.elements:
+            if element.id > elementId:
+                elementId = element.id
+
+        elementId = elementId + 1
+
+        self.elements.append(Text(elementId, self.scene.addText("template", QFont("Arial"))))
         self.selected = len(self.elements) - 1
+
+        self.explorerList.addItem(QListWidgetItem(f"{elementId}:Text object"))
 
         self.loadElement()
 
